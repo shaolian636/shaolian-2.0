@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ascension Infinie</title>
+<style>
+body{margin:0;overflow:hidden;background:#111;touch-action:none;}
+canvas{display:block;margin:0 auto;background:#222;}
+#score{position:absolute;top:10px;left:10px;color:white;font-size:22px;}
+</style>
+</head>
+<body>
+
+<div id="score">Score: 0</div>
+<canvas id="game" width="400" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let W = canvas.width;
+let H = canvas.height;
+
+// SOL FIXE
+const ground = {y: H - 10};
+
+// Joueur
+let player = {
+  x: W/2,
+  y: ground.y - 12,
+  r: 12,
+  vx: 0,
+  vy: 0
+};
+
+let gravity = 0.4;
+let jumpForce = -10;
+
+// Plateformes
+let platforms = [];
+function newPlatform(y){
+  return {
+    x: Math.random()*(W-80),
+    y: y,
+    w: 80,
+    h: 10
+  };
+}
+
+// Pièces
+let coins = [];
+function newCoin(p){
+  return {
+    x: p.x + p.w/2,
+    y: p.y - 15,
+    r: 5
+  };
+}
+
+function init(){
+  platforms=[];
+  coins=[];
+  let y = H - 80;
+
+  for(let i=0;i<12;i++){
+    let p = newPlatform(y);
+    platforms.push(p);
+    if(Math.random()<0.6) coins.push(newCoin(p));
+    y -= 70;
+  }
+}
+init();
+
+//  CONTRÔLES
+let touchX = player.x;
+
+canvas.addEventListener("touchstart", e=>{
+  let rect = canvas.getBoundingClientRect();
+  touchX = e.touches[0].clientX - rect.left;
+
+  // saut si sur le sol
+  if(player.y + player.r >= ground.y - 1){
+    player.vy = jumpForce;
+  }
+});
+
+canvas.addEventListener("touchmove", e=>{
+  let rect = canvas.getBoundingClientRect();
+  touchX = e.touches[0].clientX - rect.left;
+});
+
+let score = 0;
+
+function update(){
+
+  // Mouvement horizontal
+  player.vx = (touchX - player.x) * 0.1;
+  player.x += player.vx;
+
+  // Gravité
+  player.vy += gravity;
+  player.y += player.vy;
+
+  // Collision plateformes
+  platforms.forEach(p=>{
+    if(player.vy>0 &&
+       player.x+player.r>p.x &&
+       player.x-player.r<p.x+p.w &&
+       player.y+player.r>p.y &&
+       player.y+player.r<p.y+p.h){
+        player.vy = jumpForce;
+    }
+  });
+
+  //  SOL REBONDISSANT (fixe)
+  if(player.vy > 0 && player.y + player.r > ground.y){
+    player.y = ground.y - player.r;
+    player.vy = jumpForce;
+  }
+
+  // Scroll (NE TOUCHE PAS le sol)
+  if(player.y < H/2){
+    let dy = H/2 - player.y;
+    player.y = H/2;
+
+    platforms.forEach(p=>p.y += dy);
+    coins.forEach(c=>c.y += dy);
+
+    score += Math.floor(dy);
+    document.getElementById("score").textContent = "Score: " + score;
+  }
+
+  // Génération plateformes
+  while(platforms[platforms.length-1].y > 0){
+    let newY = platforms[platforms.length-1].y - 70;
+    let p = newPlatform(newY);
+    platforms.push(p);
+    if(Math.random()<0.6) coins.push(newCoin(p));
+  }
+
+  // Nettoyage
+  platforms = platforms.filter(p=>p.y < H);
+  coins = coins.filter(c=>c.y < H);
+
+  // Pièces
+  for(let i=coins.length-1;i>=0;i--){
+    let dx = player.x - coins[i].x;
+    let dy = player.y - coins[i].y;
+    if(Math.hypot(dx,dy) < player.r + coins[i].r){
+      coins.splice(i,1);
+      score += 50;
+    }
+  }
+
+  // Limites écran
+  player.x = Math.max(player.r, Math.min(W-player.r, player.x));
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // Joueur
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+  ctx.fill();
+
+  // Plateformes
+  ctx.fillStyle="lime";
+  platforms.forEach(p=>ctx.fillRect(p.x,p.y,p.w,p.h));
+
+  // Pièces
+  ctx.fillStyle="yellow";
+  coins.forEach(c=>{
+    ctx.beginPath();
+    ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // SOL (toujours en bas, ne bouge jamais)
+  ctx.fillStyle="#555";
+  ctx.fillRect(0,ground.y,W,10);
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+
+</script>
+</body>
+</html>
